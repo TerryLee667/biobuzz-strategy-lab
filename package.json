@@ -2,6 +2,9 @@
   "name": "biobuzz-strategy-lab",
   "version": "0.1.0",
   "private": true,
+  "description": "FTC 2026-27 BIOBUZZ Monte Carlo strategy simulator",
+  "author": "BIOBUZZ Strategy Lab <noreply@example.com>",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev -p 4817 -H 0.0.0.0",
     "build": "next build",
@@ -9,7 +12,9 @@
     "lint": "eslint",
     "smoke": "tsx scripts/smoke.ts",
     "measure": "tsx scripts/measure.ts",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "electron": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --publish never"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -28,10 +33,25 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.biobuzz.strategylab",
+    "productName": "BIOBUZZ Strategy Lab",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "out/**/*",
+      "package.json",
+      "!**/node_modules/**/*"
+    ],
+    "directories": { "output": "dist" },
+    "win": { "target": ["portable"] }
   }
 }

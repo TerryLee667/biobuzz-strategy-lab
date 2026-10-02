@@ -56,9 +56,9 @@ export function Showdown({
   const [enabled, setEnabled] = useState<Set<string>>(
     () => new Set(savedShowdown?.enabled ?? strategies.map((s) => s.id)),
   );
-  const [perPair, setPerPair] = useState(
-    () => savedShowdown?.perPair ?? (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches ? 20 : 50),
-  );
+  // Must match between the server render and the first client render, so the phone default is
+  // applied after mount instead of here (a window check here caused a hydration mismatch).
+  const [perPair, setPerPair] = useState(() => savedShowdown?.perPair ?? 50);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [rankBy, setRankBy] = useState<"qual" | "playoff">("qual");
@@ -72,7 +72,7 @@ export function Showdown({
   const selected = strategies.filter((s) => enabled.has(s.id));
 
   /** `trigger`: "auto" for the run when the page opens, "button" when someone presses Run. */
-  const run = async (trigger: "auto" | "button" = "button") => {
+  const run = async (trigger: "auto" | "button" = "button", perPairForRun = perPair) => {
     if (selected.length < 2) return;
     const id = ++runId.current;
     setRunning(true);
@@ -80,7 +80,7 @@ export function Showdown({
     setProgress(0);
     try {
       const res = await runTournamentParallel(
-        { strategies: selected, profiles, settings, matchesPerPair: perPair, seed: 1000 },
+        { strategies: selected, profiles, settings, matchesPerPair: perPairForRun, seed: 1000 },
         (d, t) => id === runId.current && setProgress(d / t),
         () => id !== runId.current,
       );
@@ -88,14 +88,14 @@ export function Showdown({
         track("showdown_run", {
           trigger,
           strategies: selected.length,
-          matches_per_pair: perPair,
+          matches_per_pair: perPairForRun,
           top_rp_strategy: [...res.stats].sort(byQualificationRank)[0]?.name ?? "",
           top_win_strategy: [...res.stats].sort(byPlayoffRank)[0]?.name ?? "",
           robot1_preset: presetName(profiles[0]),
           robot2_preset: presetName(profiles[1]),
         });
         const next = { res, version: configVersion, strategies: selected };
-        savedShowdown = { ...next, enabled: selected.map((s) => s.id), perPair };
+        savedShowdown = { ...next, enabled: selected.map((s) => s.id), perPair: perPairForRun };
         setResult(next);
       }
     } catch (e) {
@@ -107,7 +107,12 @@ export function Showdown({
 
   useEffect(() => {
     if (savedShowdown) return;
-    const id = setTimeout(() => run("auto"), 0);
+    const id = setTimeout(() => {
+      // Chosen after mount: fewer matches on phones, without breaking hydration.
+      const preferred = window.matchMedia("(max-width: 1023px)").matches ? 20 : 50;
+      setPerPair(preferred);
+      run("auto", preferred);
+    }, 0);
     return () => {
       clearTimeout(id);
       runId.current += 1;

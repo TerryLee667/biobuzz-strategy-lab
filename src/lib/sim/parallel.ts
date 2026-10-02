@@ -31,6 +31,18 @@ export function runTournamentParallel(
     let nextBatch = 0;
     let batchesDone = 0;
     let finished = false;
+    /**
+     * If a thread can't start — the worker script or one of the chunks it pulls in with importScripts
+     * failed to load, e.g. the page was left open across a redeploy so it still points at hashed files
+     * that are gone — don't fail the whole run. Fall back to the single-threaded engine, whose code is
+     * already loaded, so the showdown still produces results.
+     */
+    const fallback = () => {
+      if (finished) return;
+      finished = true;
+      for (const w of workers) w.terminate();
+      runTournament(input, onProgress, shouldCancel).then(resolve, reject);
+    };
     const finish = (result: TournamentResult | null, error?: Error) => {
       if (finished) return;
       finished = true;
@@ -44,7 +56,13 @@ export function runTournamentParallel(
     };
 
     for (let t = 0; t < Math.min(threadCount(), batches.length); t++) {
-      const w = new Worker(new URL("./showdown-worker.ts", import.meta.url), { type: "module" });
+      let w: Worker;
+      try {
+        w = new Worker(new URL("./showdown-worker.ts", import.meta.url), { type: "module" });
+      } catch {
+        fallback();
+        return;
+      }
       w.onmessage = (e: MessageEvent<PlayedMatch[]>) => {
         played.push(...e.data);
         batchesDone++;
@@ -52,7 +70,8 @@ export function runTournamentParallel(
         if (batchesDone === batches.length) finish(summarize(input, played));
         else giveWork(w);
       };
-      w.onerror = (e) => finish(null, new Error(e.message || "A simulation thread failed"));
+      w.onerror = () => fallback();
+      w.onmessageerror = () => fallback();
       workers.push(w);
       giveWork(w);
     }
