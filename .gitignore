@@ -22,6 +22,7 @@
 
 # electron-builder output
 /dist
+/dist-exe
 
 # misc
 .DS_Store

@@ -17,6 +17,7 @@ import type { GameSettings, RobotProfile, Strategy } from "@/lib/sim/types";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { cn } from "@/lib/utils";
 import type { Replay } from "./replay";
+import { Sensitivity } from "./sensitivity";
 
 const MATCH_OPTIONS = [20, 50, 100, 200];
 
@@ -341,6 +342,8 @@ export function Showdown({
           </div>
         </>
       )}
+
+      <Sensitivity strategies={selected} profiles={profiles} settings={settings} perPair={perPair} configVersion={configVersion} />
     </div>
   );
 }
